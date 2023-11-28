@@ -1,0 +1,3 @@
+indicator,fr_name,en_name,fr_field,en_field,fr_target,en_target,fr_questions,en_questions,nb_question,fr_source,en_source
+other,-- Autre à préciser --,-- Other (please specify) --,A préciser en commentaire,To be specified in comments,A préciser en commentaire,To be specified in comments,A préciser en commentaire,To be specified in comments,1,A préciser en commentaire,To be specified in comments
+10101,1.1 Nombre/taux d'écoles fermées,1.1 Number/rate of cloosed schools,Accès et environnement d'apprentissage,Access and learning environment,NA,NA,NA,NA,1,NA,NA
