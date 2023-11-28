@@ -1,0 +1,1078 @@
+---
+title: "Tableaux d'analyse complémentaires"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    toc: yes
+    toc_depth: 2
+    # number_sections: yes
+    theme: united
+    code_folding: hide
+  pdf_document:
+    toc: yes
+    toc_depth: 2
+    # number_sections: yes
+  html_document:
+    toc: yes
+    toc_depth: 2
+    # number_sections: yes
+    theme: united
+    code_folding: hide
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
+
+# Chargement de quelques packages utilitaires
+pacman::p_load(gtExtras,gtsummary,gt,openxlsx,robotoolbox,rio,here,labelled,tidyverse)
+
+# Suppression des variables existantes
+rm(list=ls())
+
+# import des donnees
+load(file="datasets.rda")
+# db_clean <- import("deliverable/02_clean/quanti/02_Ecoles_DATA.dta",format = "stata",
+#                    setclass = "tibble")
+# db_informer_raw <- import("deliverable/01_raw/quanti/01_Informateur_DATA.dta",setclass = "tibble")
+# db_informer_assist_raw <- import("deliverable/01_raw/quanti/01_AIDE_POUR_PH_DATA.dta",setclass = "tibble")
+
+
+# suppressMessages(theme_gtsummary_journal(journal = "jama"))
+suppressMessages(theme_gtsummary_compact())
+
+# Quelques variables utilitaires
+SURVEY_SOURCE <- "Source : JENA RDC - 2023"
+db_clean <- db_clean %>% ungroup() %>% 
+  set_variable_labels(
+    province = "Province",
+    milres="Milieu d’implantation de l’établissement",
+    type_etablissement ="Type d’établissement",
+    secteur="Secteur d’enseignement"
+  )
+
+```
+
+
+# Tableau 1. Proportion d’école non fonctionnelle selon la raison invoquée (fermées, détruites, attaquées ou occupées par des groupes armés) du fait des crises survenues de septembre 2021 à Mars 2022
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+tab001 <- db_clean %>% 
+  mutate(
+    motif = ifelse(!is.na(autre_ecole_motif),autre_ecole_motif,pourquoi_remplacement),
+    motif = str_replace_all(motif,"^(ECOLE NON FONCTIONNEL)$","ECOLE NON FONCTIONNELLE")
+  ) %>%
+  set_variable_labels(motif="Principale raison de la non-fonctionnalité de l'école") %>% 
+  select(province,milres,type_etablissement,secteur,motif) %>%  to_factor()
+
+```
+
+<strong> Les motifs écoles fermées, détruites, attaquées ou occupées par des groupes armés n'ont pas été formulés par les agents. La réponse au motif de remplacement était une question ouverte. Pour un prochain JENA, il serait peut-être opportun de disposer, dans le questionnaire, d'une variable listant les principaux motifs de la non fonctionnalité selon les modalités envisagées dans le plan d'analyse. Ci-après un tableau selon tous les motifs disponibles.</strong>
+
+## Dans l'ensemble
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+tab001 %>% #select(motif,province) %>%
+  select(motif) %>% 
+  filter(!is.na(motif)) %>% 
+  tbl_summary(
+    missing="ifany"#,percent="row"
+  )
+```
+
+## Par toutes les variables de classification d'intérêt
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+tab001 %>% #select(motif,province) %>%
+  filter(!is.na(motif)) %>% 
+  tbl_summary(
+    by=motif,missing="ifany",percent="row"
+  ) %>% add_overall() %>% add_p()
+```
+
+
+# Tableau 5. Proportion d’école non fonctionnelle selon la raison invoquée (Écoles utilisées comme abris par des PDI) du fait des crises survenues de septembre 2021 à Mars 2022 ?
+
+<strong> Ce tableau ne peut-être produit car le motif entre parenthèse n'a pas été mentionné par les agents. Le tableau 1 liste tous les motifs indiqués dans les données par les agents</strong>
+
+# Tableau 62. A quand remonte la dernière réunion du CCE?
+
+<strong>  A toutes fins utiles : </strong>
+
+
+1. Telle que posée dans le questionnaire, chaque école dispose de son comité communautaire d'éducation (CCE), sans indication que d'autres écoles de la même communauté peuvent y être membre. Par ailleurs, il se pourrait que chaque CCE puisse programmer ses réunions indépendamment de celles des autres écoles de la même communauté. 
+
+2. La variable est stockée au format date (Année-Mois-Jour) et non au format (numérique) représentant par exemple un nombre de jour écoulée depuis une date de référence commune aux écoles et/ou à une communauté données et/ou ... Par ailleur, nous ne disposons que d'une valeur et pas de date de référence que nous pouvons utiliser pour avoir une valeur agrégée (moyenne, médianne, etc..) raisonnablement comparable entre écoles selon les différentes variables de classifications (province, milieu de résidence, etc...)
+
+Toutefois, sous réserve des avis des experts, nous allons recourir à la date de collecte pour avoir une estimation et produire un tableau qui devrait, nous l'espérons, se rapprocher de la sollicitation faite.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+tab062 <-  db_clean %>% 
+  filter(!is.na(q163)) %>% 
+  mutate(date_reunion = ymd(q163),date_collecte=ymd(today),
+         duree=as.numeric(date_collecte-date_reunion)) %>% 
+  set_variable_labels(
+    date_reunion = "Date de la derniere reunion",
+    duree = "Durée ecoulée en jour depuis la dernière réunion"
+  ) %>% 
+  select(province,milres,type_etablissement,secteur,date_reunion,duree) %>% 
+  to_factor()
+
+```
+
+
+## Dans l'ensemble
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+tab062 %>% select(date_reunion,duree) %>% 
+  tbl_summary(
+    statistic =list(date_reunion ~ c("{mean}","{median}","{min}; {max}"),
+                    duree ~ c("{mean} ({sd})","{median} ({p25}; {p75})",
+                              "{min}; {max}")),
+    type=list(date_reunion ~ 'continuous2', duree ~ 'continuous2'),
+    missing = "ifany"
+  )
+
+```
+
+## Par province
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+tab062 %>% select(date_reunion,duree,province) %>% 
+  tbl_summary(
+    by=province,
+    statistic =list(date_reunion ~ c("{mean}","{median}","{min}; {max}"),
+                    duree ~ c("{mean} ({sd})","{median} ({p25}; {p75})",
+                              "{min}; {max}")),
+    type=list(date_reunion ~ 'continuous2', duree ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+
+```
+
+## Par milieu de résidence
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab062 %>% select(date_reunion,duree,milres) %>% 
+  tbl_summary(
+    by=milres,
+    statistic =list(date_reunion ~ c("{mean}","{median}","{min}; {max}"),
+                    duree ~ c("{mean} ({sd})","{median} ({p25}; {p75})",
+                              "{min}; {max}")),
+    type=list(date_reunion ~ 'continuous2', duree ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+
+```
+
+## Par type d'établissement
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab062 %>% select(date_reunion,duree,type_etablissement) %>% 
+  tbl_summary(
+    by=type_etablissement,
+    statistic =list(date_reunion ~ c("{mean}","{median}","{min}; {max}"),
+                    duree ~ c("{mean} ({sd})","{median} ({p25}; {p75})",
+                              "{min}; {max}")),
+    type=list(date_reunion ~ 'continuous2', duree ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par secteur d'enseignement
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+# province,milres,type_etablissement,secteur
+
+tab062 %>% select(date_reunion,duree,secteur) %>% 
+  tbl_summary(
+    by=secteur,
+    statistic =list(date_reunion ~ c("{mean}","{median}","{min}; {max}"),
+                    duree ~ c("{mean} ({sd})","{median} ({p25}; {p75})",
+                              "{min}; {max}")),
+    type=list(date_reunion ~ 'continuous2', duree ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+
+```
+
+# Tableau 73. Quels sont les principaux dangers naturels dans la communauté/zone ?
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+
+tab073 <- db_clean %>% 
+  filter(!is.na(q119_1)) %>% 
+  select(province,milres,type_etablissement,secteur,
+         q119_1_1,q119_1_2,q119_1_3,q119_1_4,q119_1_5,q119_1_6) %>% 
+  set_variable_labels(
+    q119_1_1 ="Principaux dangers naturels:Inondations",
+    q119_1_2 ="Principaux dangers naturels:Tremblements de terre",
+    q119_1_3 ="Principaux dangers naturels:Typhons/cyclones/ouragans",
+    q119_1_4 ="Principaux dangers naturels:Glissements de terrain",
+    q119_1_5 ="Principaux dangers naturels:Feux de brousse",
+    q119_1_6 ="Principaux dangers naturels:Eruption volcanique"
+  ) %>% 
+  to_factor()
+
+
+```
+
+## Par province
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab073 %>% select(province,q119_1_1:q119_1_6) %>% 
+  tbl_summary(
+    by=province,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+
+```
+
+## Par milieu de résidence
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab073 %>% select(milres,q119_1_1:q119_1_6) %>% 
+  tbl_summary(
+    by=milres,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+
+```
+
+## Par type d'établissement
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab073 %>% select(type_etablissement,q119_1_1:q119_1_6) %>% 
+  tbl_summary(
+    by=type_etablissement,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+
+```
+
+## Par secteur
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab073 %>% select(secteur,q119_1_1:q119_1_6) %>% 
+  tbl_summary(
+    by=secteur,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+
+```
+
+# Tableau 74. Des mesure(s) ont été mise(s) en place à l’école pour tenir compte des principaux dangers naturels dans la communauté/zone ?
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab074 <- db_clean %>% 
+  filter(!is.na(q119_2)) %>% 
+  select(province,milres,type_etablissement,secteur,q119_2) %>% 
+  set_value_labels(
+    q119_2=c("Des mesures ont été prises"=1,"Aucune mesure n'a été prise"=0)
+  ) %>% 
+  to_factor()
+ 
+```
+
+## Dans l'ensemble
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab074 %>%  
+  tbl_summary(by=q119_2, missing = "ifany",percent="row") %>% 
+  add_overall() %>% add_p() %>% 
+  as_gt() %>%
+  gt::tab_header(title = "",subtitle = "") %>%
+  gt::tab_source_note(gt::md(sprintf("*%s*",SURVEY_SOURCE)))
+
+```
+
+
+# Tableau 75. Citez tout au plus 3 types de ces mesures mises en place afin que l’école puisse résister à des catastrophes le cas échéant ?
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab075 <- db_clean %>% 
+  filter(q119_2==1) %>% 
+  select(province,milres,type_etablissement,secteur,
+         q119_3_1,q119_3_2,q119_3_3,q119_3_4,q119_3_5) %>% 
+  set_variable_labels(
+    q119_3_1="Reboisement des espaces/Semis d'arbres",
+    q119_3_2="Construction de canaux de canalisations des eaux et/ou d'autres obstacles utiles de même nature (barrière, enclos, clôture …)",
+    q119_3_3="Réhabilitation/Renforcement des infrastructures existantes",
+    q119_3_4="Construction de nouvelles infrastructures",
+    q119_3_5="Sensibilisation sur les catastrophes et/ou les comportements à adopter en cas de catastrophes"
+  ) %>% to_factor()
+```
+
+
+## Par province
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab075 %>% 
+  select(province,q119_3_1:q119_3_5) %>% 
+  tbl_summary(
+    by=province,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+
+```
+
+## Par milieu de résidence
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab075 %>% 
+  select(milres,q119_3_1:q119_3_5) %>% 
+  tbl_summary(
+    by=milres,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+
+```
+
+## Par type d'établissement
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab075 %>% 
+  select(type_etablissement,q119_3_1:q119_3_5) %>% 
+  tbl_summary(
+    by=type_etablissement,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+
+```
+
+## Par secteur d'enseignement
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab075 %>% 
+  select(secteur,q119_3_1:q119_3_5) %>% 
+  tbl_summary(
+    by=secteur,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+
+```
+
+
+# Tableau 84. Sur les « enseignants non qualifiés », combien ont bénéficié de dix jours complets, ou plus, de formation à l’enseignement?
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+tab084 <- db_clean %>% 
+  filter(!is.na(q208)) %>% 
+  mutate(q208=parse_number(q208)) %>% 
+  replace_na(replace=list(q208_1=0,q208_2=0)) %>% 
+  set_variable_labels(
+    q208 ="Enseignants non qualifiés ayant bénéficié d'au moins dix jours complets de formation à l’enseignement",
+    q208_1 = "Enseignants hommes non qualifiés ayant bénéficié d'au moins dix jours complets de formation à l’enseignement",
+    q208_2 = "Enseignants femmes non qualifiés ayant bénéficié d'au moins dix jours complets de formation à l’enseignement"
+  ) %>% 
+  select(province,milres,type_etablissement,secteur,q208,q208_1,q208_2) 
+
+```
+
+## Dans l'ensemble
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab084 %>% select(q208:q208_2) %>% 
+  tbl_summary(
+    statistic =list(q208 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q208_1 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q208_2 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}")),
+    type=list(q208 ~ 'continuous2', q208_1 ~ 'continuous2',q208_2 ~ 'continuous2'),
+    missing = "ifany"
+  )
+```
+
+## Par province
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab084 %>% select(province,q208:q208_2) %>% 
+  to_factor() %>% 
+  tbl_summary(
+    by=province,
+    statistic =list(q208 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q208_1 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q208_2 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}")),
+    type=list(q208 ~ 'continuous2', q208_1 ~ 'continuous2',q208_2 ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par milieu de résidence
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab084 %>% select(milres,q208:q208_2) %>% 
+  to_factor() %>% 
+  tbl_summary(
+    by=milres,
+    statistic =list(q208 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q208_1 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q208_2 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}")),
+    type=list(q208 ~ 'continuous2', q208_1 ~ 'continuous2',q208_2 ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par type d'enseignement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab084 %>% select(type_etablissement,q208:q208_2) %>% 
+  to_factor() %>% 
+  tbl_summary(
+    by=type_etablissement,
+    statistic =list(q208 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q208_1 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q208_2 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}")),
+    type=list(q208 ~ 'continuous2', q208_1 ~ 'continuous2',q208_2 ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par secteur d'enseignement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab084 %>% select(secteur,q208:q208_2) %>% 
+  to_factor() %>% 
+  tbl_summary(
+    by=secteur,
+    statistic =list(q208 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q208_1 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q208_2 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}")),
+    type=list(q208 ~ 'continuous2', q208_1 ~ 'continuous2',q208_2 ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+# Tableau 92. Combien d’enseignants travaillant dans l’école sont payés par le Ministère de l’Éducation ?
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+tab092 <- db_clean %>% 
+  filter(!is.na(q216)) %>% 
+  replace_na(replace=list(q216_1=0,q216_2=0)) %>% 
+  set_variable_labels(
+    q216 ="Nombre d'enseignants travaillant dans l’école et payés par le Ministère de l’Éducation",
+    q216_1 = "Nombre d'enseignants hommes travaillant dans l’école et payés par le Ministère de l’Éducation",
+    q216_2 = "Nombre d'enseignants femmes travaillant dans l’école et payés par le Ministère de l’Éducation"
+  ) %>% 
+  select(province,milres,type_etablissement,secteur,q216,q216_1,q216_2) 
+```
+
+## Par province
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab092 %>% select(province,q216:q216_2) %>% 
+  to_factor() %>% 
+  tbl_summary(
+    by=province,
+    statistic =list(q216 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q216_1 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q216_2 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}")),
+    type=list(q216 ~ 'continuous2', q216_1 ~ 'continuous2',q216_2 ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par milieu de résidence
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab092 %>% select(milres,q216:q216_2) %>% 
+  to_factor() %>% 
+  tbl_summary(
+    by=milres,
+    statistic =list(q216 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q216_1 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q216_2 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}")),
+    type=list(q216 ~ 'continuous2', q216_1 ~ 'continuous2',q216_2 ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par type d'enseignement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab092 %>% select(type_etablissement,q216:q216_2) %>% 
+  to_factor() %>% 
+  tbl_summary(
+    by=type_etablissement,
+    statistic =list(q216 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q216_1 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q216_2 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}")),
+    type=list(q216 ~ 'continuous2', q216_1 ~ 'continuous2',q216_2 ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par secteur d'enseignement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab092 %>% select(secteur,q216:q216_2) %>% 
+  to_factor() %>% 
+  tbl_summary(
+    by=secteur,
+    statistic =list(q216 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q216_1 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}"),
+                    q216_2 ~ c("{sum}",
+                             "{mean} ({sd})",
+                             "{median} ({p25}; {p75})",
+                             "{min}; {max}")),
+    type=list(q216 ~ 'continuous2', q216_1 ~ 'continuous2',q216_2 ~ 'continuous2'),
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+# Tableau 106. Si le nombre d’enseignants a diminué, quelles en sont les principales raisons ?
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+choice_q206_5 <- c("Le CRS a fermé","INSATISFACTION DANS LE PAYEMENT DE SALAIRE",
+                   "DES ENSEIGNANTS NON MECANISER PAR L’ETAT N I",
+                   "PANDEMIE CORONA VIRUS","INSATISFACTION DANS LE PAYEMENT DE SALAIRE ET LA MATERNITE",
+                   ". E CRS a fermé")
+choice_q206_6 <- c("ILS INTEGRENT DANS DES GROUPES ARMEES","TRAUMATISME LIE AUX CRISE DE CONFLIT ARME",
+                   "EXPLOITATION DES ENFA T DANS LES MINE","ÉCOLE  TRES PROCHE DU CAMPS MILITAIRE  À 100 METTRES")
+
+tab106 <- db_clean %>% 
+  filter(!is.na(q206_1),q206_1==1) %>% 
+  mutate(
+    across(
+      all_of(c(sprintf("q206_2a_%d",1:6),sprintf("q206_2b_%d",1:6))),
+      ~ replace_na(.x,0)
+    ),
+    q206_2a_5 = ifelse(q206_2a_other %in% choice_q206_5,1,q206_2a_5),
+    q206_2b_5 = ifelse(q206_2b_other %in% choice_q206_5,1,q206_2b_5),
+    q206_2a_6 = ifelse(q206_2a_other %in% choice_q206_6,1,q206_2a_6),
+    q206_2b_6 = ifelse(q206_2b_other %in% choice_q206_6,1,q206_2b_6),
+    q206_2_1=as.numeric(q206_2a_1|q206_2b_1),
+    q206_2_2=as.numeric(q206_2a_2|q206_2b_2),
+    q206_2_3=as.numeric(q206_2a_3|q206_2b_3),
+    q206_2_4=as.numeric(q206_2a_4|q206_2b_4),
+    q206_2_5=as.numeric(q206_2a_5|q206_2b_5),
+    q206_2_6=as.numeric(q206_2a_6|q206_2b_6)
+  ) %>%  
+  set_variable_labels(
+    q206_2_1="Raisons de la dimunition du nombre d'enseignants : Blessé",
+    q206_2_2="Raisons de la dimunition du nombre d'enseignants : Mort",
+    q206_2_3="Raisons de la dimunition du nombre d'enseignants : Disparu",
+    q206_2_4="Raisons de la dimunition du nombre d'enseignants : Déplacé",
+    q206_2_5="Raisons de la dimunition du nombre d'enseignants : Pas payé",
+    q206_2_6="Raisons de la dimunition du nombre d'enseignants : Insécurité",
+    q206_2a_1="Raisons de la dimunition du nombre d'enseignants hommes : Blessé",
+    q206_2a_2="Raisons de la dimunition du nombre d'enseignants hommes : Mort",
+    q206_2a_3="Raisons de la dimunition du nombre d'enseignants hommes : Disparu",
+    q206_2a_4="Raisons de la dimunition du nombre d'enseignants hommes : Déplacé",
+    q206_2a_5="Raisons de la dimunition du nombre d'enseignants hommes : Pas payé",
+    q206_2a_6="Raisons de la dimunition du nombre d'enseignants hommes : Insécurité",
+    q206_2b_1="Raisons de la dimunition du nombre d'enseignants femmes : Blessé",
+    q206_2b_2="Raisons de la dimunition du nombre d'enseignants femmes : Mort",
+    q206_2b_3="Raisons de la dimunition du nombre d'enseignants femmes : Disparu",
+    q206_2b_4="Raisons de la dimunition du nombre d'enseignants femmes : Déplacé",
+    q206_2b_5="Raisons de la dimunition du nombre d'enseignants femmes : Pas payé",
+    q206_2b_6="Raisons de la dimunition du nombre d'enseignants femmes : Insécurité"
+  ) %>% 
+  select(province,milres,type_etablissement,secteur,
+          all_of(c(sprintf("q206_2_%d",1:6),sprintf("q206_2a_%d",1:6),
+                   sprintf("q206_2b_%d",1:6))))  %>% 
+  to_factor()
+```
+
+## Par province
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab106 %>% select(province,q206_2_1:q206_2b_6) %>% 
+  tbl_summary(
+    by=province,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par milieu de résidence
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab106 %>% select(milres,q206_2_1:q206_2b_6) %>% 
+  tbl_summary(
+    by=milres,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par type d'établissement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab106 %>% select(type_etablissement,q206_2_1:q206_2b_6) %>% 
+  tbl_summary(
+    by=type_etablissement,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par secteur d'enseignement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab106 %>% select(secteur,q206_2_1:q206_2b_6) %>% 
+  tbl_summary(
+    by=secteur,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+# Tableau 115. Les toilettes/latrines sont-elles sont-elles accessibles pour des personnes handicapées ? [revision]
+
+<strong> Dans la production ci-dessous on ne fait pas cas du type de toilettes/latrines </strong>
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+```
+
+
+# Tableau 116. Des efforts ont-ils été faits par votre école en vue d’aider les élèves en situation de handicap à accéder, participer et/ou rester à l’école à la suite des situations de crises intervenues de septembre 2021 à Mars 2022 ? [revision]
+
+<strong> Dans la production ci-dessous on ne fait pas cas du type de crises </strong>
+
+# Tableau xxx. Quelles mesures ont été prises pour soutenir l’éducation des groupes vulnérables pendant la pandémie de la Covid-19 ? [Tous les groupes vulnérables]
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+choice_q302_0 <- c("AUCUN","AUCUNE MESURE","NON","AUCUNE MESURE  N’A ÉTÉ PRISE","Aucun",
+                   "Aucune","none","Aucune mesure","Aucune mesure à été prise",
+                   "Pas de mesure","Au mesure","AUCUNE","MANQUE  DE MOYENS",
+                   "MANQUE  D,APPUIE","RIEN","NONE","AUCUNE MESURE PRISE","AUCUN MESURE",
+                   "AUCUN \n","AUCUN GROUPE","Aucune mesure prise","Aucune mesure n'a été prise",
+                   "AUCUNE  MESURE  PRISE","RAS","AUCUNE INITIATIVE","PAS DES MESURES",
+                   "Aucune  mesure prise","Aucun groupe","AUCUNE MESURE À LEURS FAVEURS")
+
+choice_mesure_1 <- c("ILS ONT ETE GRATUITEMENT")
+choice_mesure_2 <- c("ENSEIGNEMENTS A DISTANCE","Alternance")
+choice_mesure_3 <- c("L’APPUIE AVEC DES KITS SANITAIRES","LE PORT DE CACHE NEZ")
+
+tabxxx <- db_clean %>% 
+  mutate(
+    au_moins_une_mesure = ifelse(q302_96==0,1,as.numeric(!q302_other%in% choice_q302_0)),
+    mesure_1 = ifelse(is.na(q302a_1) & is.na(q302b_1) & is.na(q302c_1) & is.na(q302d_1) & is.na(q302e_1) & 
+                        is.na(q302f_1) & is.na(q302g_1) & is.na(q302h_1) & is.na(q302i_1) , NA_integer_,
+                      as.numeric(
+                        replace_na(q302a_1,0) |replace_na(q302b_1,0) |replace_na(q302c_1,0) |replace_na(q302d_1,0) |
+                          replace_na(q302e_1,0) |replace_na(q302f_1,0) |replace_na(q302g_1,0) |replace_na(q302h_1,0) |
+                          replace_na(q302i_1,0)
+                      )),
+    mesure_1 = ifelse(q302_other %in% choice_mesure_1,1,mesure_1),
+    mesure_2 = ifelse(is.na(q302a_2) & is.na(q302b_2) & is.na(q302c_2) & is.na(q302d_2) & is.na(q302e_2) & 
+                        is.na(q302f_2) & is.na(q302g_2) & is.na(q302h_2) & is.na(q302i_2) , NA_integer_,
+                      as.numeric(
+                        replace_na(q302a_2,0) |replace_na(q302b_2,0) |replace_na(q302c_2,0) |replace_na(q302d_2,0) |
+                          replace_na(q302e_2,0) |replace_na(q302f_2,0) |replace_na(q302g_2,0) |replace_na(q302h_2,0) |
+                          replace_na(q302i_2,0)
+                      )),
+    mesure_2 = ifelse(q302_other %in% choice_mesure_2,1,mesure_2),
+    mesure_3 = ifelse(is.na(q302a_3) & is.na(q302b_3) & is.na(q302c_3) & is.na(q302d_3) & is.na(q302e_3) & 
+                        is.na(q302f_3) & is.na(q302g_3) & is.na(q302h_3) & is.na(q302i_3) , NA_integer_,
+                      as.numeric(
+                        replace_na(q302a_3,0) |replace_na(q302b_3,0) |replace_na(q302c_3,0) |replace_na(q302d_3,0) |
+                          replace_na(q302e_3,0) |replace_na(q302f_3,0) |replace_na(q302g_3,0) |replace_na(q302h_3,0) |
+                          replace_na(q302i_3,0)
+                      )),
+    mesure_3 = ifelse(q302_other %in% choice_mesure_3,1,mesure_3),
+    mesure_4 = ifelse(is.na(q302a_4) & is.na(q302b_4) & is.na(q302c_4) & is.na(q302d_4) & is.na(q302e_4) & 
+                        is.na(q302f_4) & is.na(q302g_4) & is.na(q302h_4) & is.na(q302i_4) , NA_integer_,
+                      as.numeric(
+                        replace_na(q302a_4,0) |replace_na(q302b_4,0) |replace_na(q302c_4,0) |replace_na(q302d_4,0) |
+                          replace_na(q302e_4,0) |replace_na(q302f_4,0) |replace_na(q302g_4,0) |replace_na(q302h_4,0) |
+                          replace_na(q302i_4,0)
+                      )),
+    across(
+      all_of(sprintf("mesure_%d",1:4)), ~ replace_na(.x,0)
+    )
+  ) %>% 
+  filter(au_moins_une_mesure==1) %>% 
+  set_variable_labels(
+    mesure_1="Soutien financier supplémentaire aux apprenants du groupe",
+    mesure_2="Un effort particulier pour améliorer l’accès à l’infrastructure pour les apprenants",
+    mesure_3="Appareils subventionnés pour l’accès",
+    mesure_4="Matériel d’apprentissage sur mesure pour le groupe",
+    type_etablissement="Type d'établissement"
+  ) %>% 
+  # set_value_labels(
+  #   milres=c("Urbain"=1,"Rural"=2),
+  #   province=c("ITURI"=1,"KASAI-CENTRAL"=2,"KASAI-ORIENTAL"=3,
+  #              "NORD-KIVU"=4,"SUD-KIVU"=5,"TANGANYIKA"=6),
+  #   type_etablissement=c("CENTRE RATTRAPAGE SCOLAIRE"=1,"ECOLE MATERNELLE"=2,
+  #                        "ECOLE PRIMAIRE"=3,"ECOLE SECONDAIRE"=4),
+  #   secteur=c("Public"=1,"Prive"=2)
+  # ) %>% 
+  select(province,milres,type_etablissement,secteur,mesure_1,mesure_2,mesure_3,mesure_4,hhid,q302_1,q302_5) %>% 
+  to_factor()
+```
+
+## Par province
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tabxxx %>% select(province,mesure_1:mesure_4) %>% 
+  tbl_summary(
+    by=province,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par milieu de résidence
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tabxxx %>% select(milres,mesure_1:mesure_4) %>% 
+  tbl_summary(
+    by=milres,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par type d'établissement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tabxxx %>% select(type_etablissement,mesure_1:mesure_4) %>% 
+  tbl_summary(
+    by=type_etablissement,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par secteur d'enseignement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tabxxx %>% select(secteur,mesure_1:mesure_4) %>% 
+  tbl_summary(
+    by=secteur,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+
+# Tableau 111. Quelles mesures ont été prises pour soutenir l’éducation des groupes vulnérables pendant la pandémie de la Covid-19 ? (C)
+
+Le tableau 111 est repris pour la section genre. Toutefois, le groupe vulnérable à la modalité C, a trait aux enfants sans parent ni gardien, contrairement au groupe vulnérable à la modalité E (apprenantes enceintes et jeunes mères). Aussi le tableu 111, ci-dessous a trait au groupes vulnérable E et non à celui de la modalité C.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# On restreint les tableaux uniquement au femmes
+tab111 <- tabxxx %>% filter(q302_5==1) 
+```
+
+## Par province
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab111 %>% select(province,mesure_1:mesure_4) %>% 
+  tbl_summary(
+    by=province,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par milieu de résidence
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab111 %>% select(milres,mesure_1:mesure_4) %>% 
+  tbl_summary(
+    by=milres,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par type d'établissement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab111 %>% select(type_etablissement,mesure_1:mesure_4) %>% 
+  mutate(type_etablissement=fct_drop(type_etablissement)) %>% 
+  tbl_summary(
+    by=type_etablissement,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par secteur d'enseignement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab111 %>% select(secteur,mesure_1:mesure_4) %>% 
+  tbl_summary(
+    by=secteur,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+
+# Tableau 118. Quelles mesures ont été prises pour soutenir l’éducation des groupes vulnérables pendant la pandémie de la Covid-19 ? (A)
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# On restreint les tableaux uniquement au femmes
+tab118 <- tabxxx %>% filter(q302_1==1) 
+```
+
+## Par province
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab118 %>% select(province,mesure_1:mesure_4) %>% 
+  tbl_summary(
+    by=province,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par milieu de résidence
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab118 %>% select(milres,mesure_1:mesure_4) %>% 
+  tbl_summary(
+    by=milres,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par type d'établissement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab118 %>% select(type_etablissement,mesure_1:mesure_4) %>% 
+  tbl_summary(
+    by=type_etablissement,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par secteur d'enseignement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab118 %>% select(secteur,mesure_1:mesure_4) %>% 
+  tbl_summary(
+    by=secteur,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+# Tableau 120. Si oui, quel type d’aider les élèves en situation de handicap ont-ils reçu en vue d’accéder, participer et/ou rester à l’école à la suite des situations de crises intervenues de septembre 2021 à Mars 2022 ?  
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+choice_i302_1 <- c("Accompagner leurs enfants à l’école")
+choice_i302_2 <- c("Cantine scolaire")
+choice_i302_3 <- c("LAVABOS,  CASH NEZ")
+choice_i302_5 <- c("Pris en charge, assistance educationnel",
+                   "BENEFICIER DE LA GRATUITE PRONEE PAR LE GOUVERNEMENT")
+
+tab120 <- db_informer_assist_raw %>% 
+  mutate(
+    q302_1 = ifelse(q302_1 %in% choice_i302_1,1,q302_1),
+    q302_2 = ifelse(q302_2 %in% choice_i302_2,1,q302_2),
+    q302_3 = ifelse(q302_3 %in% choice_i302_3,1,q302_3),
+    q302_5 = ifelse(q302_5 %in% choice_i302_5,1,q302_5)
+  ) %>% 
+  group_by(parent_index) %>% 
+  summarise(
+    q302_1=any(as.logical(q302_1),na.rm = FALSE),
+    q302_2=any(as.logical(q302_2),na.rm = FALSE),
+    q302_3=any(as.logical(q302_3),na.rm = FALSE),
+    q302_4=any(as.logical(q302_4),na.rm = FALSE),
+    q302_5=any(as.logical(q302_5),na.rm = FALSE),
+    q302_6=any(as.logical(q302_6),na.rm = FALSE),
+    q302_7=any(as.logical(q302_7),na.rm = FALSE),
+    q302_8=any(as.logical(q302_8),na.rm = FALSE),
+    q302_9=any(as.logical(q302_9),na.rm = FALSE),
+    q302_10=any(as.logical(q302_10),na.rm = FALSE)
+  ) %>% ungroup() %>% 
+  select(parent_index,all_of(sprintf("q302_%d",1:10))) %>% 
+  left_join(
+    db_informer_raw %>% select(province,milres,type_etablissement,secteur,index),
+    by=join_by(parent_index==index)
+  ) %>% 
+  set_variable_labels(
+    q302_1="Surveillance de la protection des enfants",
+    q302_2="Alimentation à l’école",
+    q302_3="Fourniture de matériel sanitaire pour les filles",
+    q302_4="Fourniture d’uniformes ou de vêtements",
+    q302_5="Bourses ou exonération des frais de scolarité",
+    q302_6="Emploi du temps flexible",
+    q302_7="Classes séparées pour les apprenants plus âgés",
+    q302_8="Suivi de l’abandon scolaire",
+    q302_9="Cours « de rattrapage » ou accélérés",
+    q302_10="Services de garderie pour les enfants",
+    province = "Province",
+    milres="Milieu d’implantation de l’établissement",
+    type_etablissement ="Type d’établissement",
+    secteur="Secteur d’enseignement"
+  ) %>% 
+  set_value_labels(
+    milres=c("Urbain"=1,"Rural"=2),
+    province=c("ITURI"=1,"KASAI-CENTRAL"=2,"KASAI-ORIENTAL"=3,
+               "NORD-KIVU"=4,"SUD-KIVU"=5,"TANGANYIKA"=6),
+    type_etablissement=c("CENTRE RATTRAPAGE SCOLAIRE"=1,"ECOLE MATERNELLE"=2,
+                         "ECOLE PRIMAIRE"=3,"ECOLE SECONDAIRE"=4),
+    secteur=c("Public"=1,"Prive"=2)
+  ) %>% select(-parent_index) %>% 
+  to_factor()
+
+```
+
+## Par province
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab120 %>% select(province,q302_1:q302_10) %>% 
+  tbl_summary(
+    by=province,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par milieu de résidence
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab120 %>% select(milres,q302_1:q302_10) %>% 
+  tbl_summary(
+    by=milres,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par type d'établissement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab120 %>% select(type_etablissement,q302_1:q302_10) %>% 
+  tbl_summary(
+    by=type_etablissement,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
+## Par secteur d'enseignement
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# province,milres,type_etablissement,secteur
+tab120 %>% select(secteur,q302_1:q302_10) %>% 
+  tbl_summary(
+    by=secteur,
+    missing = "ifany"
+  ) %>%
+  add_overall() %>% add_p()
+```
+
